@@ -1,0 +1,3 @@
+ pscp  sanka@192.168.10.52:volttron/GridConditionTestAgent/gridConditionTestAgent/agent.py .\EMS_Agents\GridConditionTestAgent
+ pscp   .\EMS_Agents\GridConditionTestAgent\agent.py sanka@192.168.10.52:volttron/GridConditionTestAgent/gridConditionTestAgent/
+python scripts/install-agent.py -s GridConditionTestAgent/ -c GridConditionTestAgent/config -t GCTAgent

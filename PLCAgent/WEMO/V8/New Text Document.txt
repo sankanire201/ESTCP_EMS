@@ -1,0 +1,3 @@
+ pscp   sanka@192.168.10.52:volttron/LoadPrority/LoadProrityAgent/agent.py C:\Users\sanka.liyanage\EMS_Agents\PLCAgent\WEMO\V8
+ pscp   C:\Users\sanka.liyanage\EMS_Agents\PLCAgent\WEMO\V8\agent.py  sanka@192.168.10.52:volttron/LoadPrority/LoadProrityAgent/ 
+python scripts/install-agent.py -s LoadPrority/ -c LoadPrority/config -t PLCAgent
