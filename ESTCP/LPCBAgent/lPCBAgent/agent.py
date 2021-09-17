@@ -96,7 +96,7 @@ class Lpcbagent(Agent):
         self.Power_Consumption_Upper_limit=1000000
         Temp1={}
         Temp2={}
-        csv_path='Buildings_Config.csv'
+        csv_path='/home/sanka/volttron/LPCBAgent/Buildings_Config.csv'
         WeMo_Priorities={}
 	#config_dict = utils.load_config('/home/sanka/volttron/LPCBAgent/Building_Config.csv')
 	self.loads_consumption={}
@@ -305,7 +305,8 @@ class Lpcbagent(Agent):
         try:
                             
             topics=self.WeMo_Topics[WeMo]
-            if self.WeMo_Scheduled_Status[WeMo]==0:
+            result = self.vip.pubsub.publish(peer='pubsub',topic=topics,headers=header, message=self.WeMo_Scheduled_Status[WeMo])
+            '''if self.WeMo_Scheduled_Status[WeMo]==0:
                 result = self.vip.pubsub.publish(peer='pubsub',topic=topics,headers=header, message=1)
                 time.sleep(.2)
                 result = self.vip.pubsub.publish(peer='pubsub',topic=topics,headers=header, message=0)
@@ -314,7 +315,7 @@ class Lpcbagent(Agent):
                 result = self.vip.pubsub.publish(peer='pubsub',topic=topics,headers=header, message=0)
                 time.sleep(.2)
                 result = self.vip.pubsub.publish(peer='pubsub',topic=topics,headers=header, message=1)
-                print("on") 
+                print("on") '''
             
 #            if result['status']==11:
 #                print('Wemo is not responded')
@@ -407,6 +408,8 @@ class Lpcbagent(Agent):
                     Temp_WeMo_Schedule[y]=1 
             if Lpcbagent.Direct_Control_Mode==0:
                     Temp_WeMo_Schedule[y]=0
+            if Lpcbagent.Direct_Control_Mode==2:
+                    Temp_WeMo_Schedule[y]=2
             else:
                     pass
         return Temp_WeMo_Schedule
@@ -428,13 +431,13 @@ class Lpcbagent(Agent):
                 
                 if consumption >= Lpcbagent.Increment_Amount:
                     break;
-                Temp_WeMo_Schedule[y[0]]=1
+                Temp_WeMo_Schedule[y[0]]=2
             if consumption >= Lpcbagent.Increment_Amount:
                 break;
             
             del Temp_Off_WeMos[max(Temp_Off_WeMos.keys())]
-        print(consumption)
-        print(Temp_Off_WeMos)
+        print('consumption',consumption,self.loads_max_consumption)
+        print('off_wemos',Temp_Off_WeMos)
         return Temp_WeMo_Schedule
 
                            
