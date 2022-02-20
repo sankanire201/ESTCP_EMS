@@ -1,0 +1,12 @@
+Reference Point Name,Volttron Point Name,Units,Units Details,Modbus Register,Writable,Point Address,Default Values, Notes
+CMD_G1,CMD_G1,W,0.00-2000.00,>h,TRUE,40,,Reading 0.00-2000.0 W
+CMD_G2,CMD_G2,W,0.00-2000.00,>h,TRUE,41,,Reading 0.00-2000.0 W
+CMD_G3,CMD_G3,W,0.00-2000.00,>h,TRUE,42,,Reading 0.00-2000.0 W
+CMD_G4,CMD_G4,W,0.00-2000.00,>h,TRUE,43,,Reading 0.00-2000.0 W
+CMD_G5,CMD_G5,W,0.00-2000.00,>h,TRUE,44,,Reading 0.00-2000.0 W
+CMD_G6,CMD_G6,W,0.00-2000.00,>h,TRUE,45,,Reading 0.00-2000.0 W
+CMD_G7,CMD_G7,W,0.00-2000.00,>h,TRUE,46,,Reading 0.00-2000.0 W
+CMD_G8,CMD_G8,W,0.00-2000.00,>h,TRUE,47,,Reading 0.00-2000.0 W
+CMD_G9,CMD_G9,W,0.00-2000.00,>h,TRUE,48,,Reading 0.00-2000.0 W
+CMD_G10,CMD_G10,W,0.00-2000.00,>h,TRUE,49,Reading 0.00-2000.0 W,
+

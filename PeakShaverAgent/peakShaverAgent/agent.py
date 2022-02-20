@@ -3,7 +3,9 @@ Agent documentation goes here.
 """
 
 __docformat__ = 'reStructuredText'
-
+import datetime
+from datetime import datetime
+import time
 import logging
 import sys
 from volttron.platform.agent import utils
@@ -55,7 +57,7 @@ class Peakshaveragent(Agent):
 
         self.default_config = {"setting1": setting1,
                                "setting2": setting2}
-        self.total_consumption=0
+        self.total_consumption=-10
         self.Peakshaverthreashhold=1000000
 
 
@@ -103,10 +105,23 @@ class Peakshaveragent(Agent):
 
     def _handle_publish(self, peer, sender, bus, topic, headers,
                                 message):
+        now = utils.format_timestamp(datetime.utcnow())
+        utcnow = utils.get_aware_utc_now()
+ 
+        header = {
+        #    headers_mod.CONTENT_TYPE: headers_mod.CONTENT_TYPE.PLAIN_TEXT,
+            "Date": utils.format_timestamp(utcnow),
+            "TimeStamp":utils.format_timestamp(utcnow)
+        }
+        
         x=topic.find('prioritygroupconsumption')
         if x>0:
             self.total_consumption=message["Total_group_sum"]
-            print("***********************got it******************",self.total_consumption,self.Peakshaverthreashhold)
+            topics = "analysis/Centralcontrol/Control/Pshaveerror/all"
+            self.peak_shaving_error=self.total_consumption-self.Peakshaverthreashhold
+            Message={"Peak_shaving_error":self.peak_shaving_error}
+            result = self.vip.pubsub.publish(peer='pubsub',topic=topics, headers=header,message= Message)          
+            print("***********************got it******************",self.total_consumption,self.Peakshaverthreashhold,self.peak_shaving_error)
         x=topic.find('PeakShaver')
         if x>0:
             print("***********************got it******************Pshaver",message)
@@ -115,8 +130,15 @@ class Peakshaveragent(Agent):
         x=topic.find("PriorityControl")
         if x>0:
             print("***********************got it******************GAMS",message)
-            result=self.vip.rpc.call('lPCBAgentagent-0.1_1','direct_load_control', message[0:-1])
+            #result=self.vip.rpc.call('lPCBAgentagent-0.1_1','direct_load_control', message[0:-1])
             self.Peakshaverthreashhold=message[-1]
+            topics = "devices/Centralcontrol/Control/GAMS_command/all"
+            Message={"building_status":message[0:-1] ,"Shedding_Threashold":self.Peakshaverthreashhold}
+            result = self.vip.pubsub.publish(peer='pubsub',topic=topics, headers=header,message= Message)          
+            topics = "analysis/Centralcontrol/Control/GAMS_command/all"
+            result = self.vip.pubsub.publish(peer='pubsub',topic=topics, headers=header,message= Message)
+            print("########################################################################Power Consumption for Building############################", self.Priority_Consumption,self.Priority_group_Consumption,self.total_consumption)
+
             #print("***********************got it******************",self.Peakshaverthreashhold)
 
 
@@ -136,6 +158,15 @@ class Peakshaveragent(Agent):
         #Exmaple RPC call
         #self.vip.rpc.call("some_agent", "some_method", arg1, arg2)
     def PeakShaver(self):
+        now = utils.format_timestamp(datetime.utcnow())
+        utcnow = utils.get_aware_utc_now()
+ 
+        header = {
+        #    headers_mod.CONTENT_TYPE: headers_mod.CONTENT_TYPE.PLAIN_TEXT,
+            "Date": utils.format_timestamp(utcnow),
+            "TimeStamp":utils.format_timestamp(utcnow)
+        }
+
         
         shedding=self.total_consumption-self.Peakshaverthreashhold
         print("nnothing to shed*************************",shedding)
@@ -144,11 +175,20 @@ class Peakshaveragent(Agent):
            topics='control/plc/shedding'
            result = self.vip.pubsub.publish(peer='pubsub',topic=topics,message=shedding)
            print("PShaver_Start shedding*************************",shedding,self.Peakshaverthreashhold)
-        if shedding <-500:
+           topics = "devices/Centralcontrol/Control/Peakshaver/all"
+           Message={"shedding":shedding ,"increment":0}
+           result = self.vip.pubsub.publish(peer='pubsub',topic=topics, headers=header,message= Message)          
+
+        if shedding > -50000 and shedding < -500:
             
            topics='control/plc/increment'
            result = self.vip.pubsub.publish(peer='pubsub',topic=topics,message=abs(shedding))
            print("PShaver_Start increment*************************",abs(shedding),self.Peakshaverthreashhold)
+           topics = "devices/Centralcontrol/Control/Peakshaver/all"
+           Message={"building_status":0 ,"Shedding_Threashold":abs(shedding)}
+           result = self.vip.pubsub.publish(peer='pubsub',topic=topics, headers=header,message= Message)          
+
+
 
         else:
             print("nothing to shed*************************",shedding,self.Peakshaverthreashhold)

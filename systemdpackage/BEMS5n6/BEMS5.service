@@ -1,0 +1,15 @@
+[Unit] 
+Description=BEMS3 Platform Service 
+After=systemd-networkd-wait-online.service 
+Wants=systemd-networkd-wait-online.service
+ 
+[Service] 
+Type=simple 
+User=pi 
+Environment="VOLTTRON_HOME=/home/pi/.BEMS_5"
+WorkingDirectory=/home/pi/volttron 
+ExecStart=/home/pi/volttron/env/bin/volttron -vv 
+ExecStop=/home/pi/volttron/env/bin/volttron-ctl shutdown --platform 
+ 
+[Install] 
+WantedBy=multi-user.target 

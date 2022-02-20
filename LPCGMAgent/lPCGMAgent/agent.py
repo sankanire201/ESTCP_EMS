@@ -11,10 +11,6 @@ import logging
 import sys
 from volttron.platform.agent import utils
 from volttron.platform.vip.agent import Agent, Core, RPC
-from paho.mqtt.client import MQTTv311, MQTTv31
-import paho.mqtt.publish as publish
-import paho.mqtt.client as paho
-from paho.mqtt.subscribe import callback
 from pprint import pformat
 from csv import DictReader, DictWriter
 import os
@@ -28,21 +24,20 @@ utils.setup_logging()
 __version__ = "0.1"
 
 
-def lPCBAgent(config_path, **kwargs):
-    """Parses the Agent configuration and returns an instance of
+def lPCGMAgent(config_path, **kwargs):
+    """
+    Parses the Agent configuration and returns an instance of
     the agent created using that configuration.
 
     :param config_path: Path to a configuration file.
-
     :type config_path: str
-    :returns: Lpcbagent
-    :rtype: Lpcbagent
+    :returns: Lpcgmagent
+    :rtype: Lpcgmagent
     """
     try:
         config = utils.load_config(config_path)
-    except StandardError:
+    except Exception:
         config = {}
-        
 
     if not config:
         _log.info("Using Agent defaults for starting configuration.")
@@ -50,12 +45,10 @@ def lPCBAgent(config_path, **kwargs):
     setting1 = int(config.get('setting1', 1))
     setting2 = config.get('setting2', "some/random/topic")
 
-    return Lpcbagent(setting1,
-                          setting2,
-                          **kwargs)
+    return Lpcgmagent(setting1, setting2, **kwargs)
 
 
-class Lpcbagent(Agent):
+class Lpcgmagent(Agent):
     """
     Document agent constructor here.
     
@@ -71,11 +64,12 @@ class Lpcbagent(Agent):
 
     def __init__(self, setting1=1, setting2="some/random/topic",
                  **kwargs):
-        super(Lpcbagent, self).__init__(**kwargs)
+        super(Lpcgmagent, self).__init__(**kwargs)
         _log.debug("vip_identity: " + self.core.identity)
 
         self.setting1 = setting1
         self.setting2 = setting2
+        self.BEMStag = setting1
 
         self.default_config = {"setting1": setting1,
                                "setting2": setting2}
@@ -96,14 +90,14 @@ class Lpcbagent(Agent):
         self.Power_Consumption_Upper_limit=1000000
         Temp1={}
         Temp2={}
-        csv_path='/home/sanka/volttron/LPCBAgent/Buildings_Config.csv'
+        csv_path='/home/pi/volttron/LPCGMAgent/Buildings_Config.csv'
         WeMo_Priorities={}
 	#config_dict = utils.load_config('/home/sanka/volttron/LPCBAgent/Building_Config.csv')
-	self.loads_consumption={}
-	self.loads_max_consumption={}
+        self.loads_consumption={}
+        self.loads_max_consumption={}
         self.total_consumption=0
         self.event_control_trigger=0
-        
+
         if os.path.isfile(csv_path):
        	 with open(csv_path, "r") as csv_device:
              pass
@@ -127,7 +121,7 @@ class Lpcbagent(Agent):
                      if Name=='\t\t\t':
                          pass
                      else:
-                         Name=Name+"_"+Building
+                         Name=Name+Building
                          self.WeMo_Actual_Status[Name]=0
                          self.WeMo_Priorities[int(Priority)].append([Name,int(Consumption)])
                          self.WeMo_Topics[Name]=Topic
@@ -144,12 +138,7 @@ class Lpcbagent(Agent):
                     
                 self.Priority_Consumption[x]=temp
                 self.Priority_group_Consumption[x]=0
-                
-            
-         
-			 
-                             
-                         
+
                      
         else:
             # Device hasn't been created, or the path to this device is incorrect
@@ -164,7 +153,6 @@ class Lpcbagent(Agent):
         self.vip.config.set_default("config", self.default_config)
         #Hook self.configure up to changes to the configuration file "config".
         self.vip.config.subscribe(self.configure, actions=["NEW", "UPDATE"], pattern="config")
-
     def configure(self, config_name, action, contents):
         """
         Called after the Agent has connected to the message bus. If a configuration exists at startup
@@ -210,49 +198,76 @@ class Lpcbagent(Agent):
             "Date": utils.format_timestamp(utcnow),
             "TimeStamp":utils.format_timestamp(utcnow)
         }
-        x=topic.find('Monitor')
+           
+        x=topic.find('BEMS_'+str(self.BEMStag))
+        print('yyyyyyyyyyyyyyyyyyy', topic)
+        
         if x>0:
-            BEMStag=topic.split("/")
-            index=BEMStag[-2]
-            self.loads_consumption[index]=int((message[0])['Main_P'])/10
-            self.WeMo_Actual_Status[index]=int((message[0])['Main_S'])
-            if self.loads_max_consumption[index]< self.loads_consumption[index]:
-                self.loads_max_consumption[index]=self.loads_consumption[index]
+            
+            for k in self.loads_consumption:
+                tag='P_'+k
+                tagS='CMD_'+k
+                
+                self.loads_consumption[k]=int((message[0])[tag])/10
+                self.WeMo_Actual_Status[k]=int((message[0])[tagS])
+                if self.loads_max_consumption[k]< self.loads_consumption[k]:
+                    self.loads_max_consumption[k]=self.loads_consumption[k]
+                self.Priority_Consumption[self.WeMo_Priority_increment[k]][k]=int((message[0])[tag])/10
+                self.Priority_group_Consumption[self.WeMo_Priority_increment[k]]=sum(self.Priority_Consumption[self.WeMo_Priority_increment[k]].values())
+                values=self.loads_consumption.values()
+                self.total_consumption=sum(values)
+                print("aaaaaaaaaaaaaaaaaaa",self.loads_consumption,"bbbbbbbbbbbbbbb", self.WeMo_Actual_Status[k])
+
+            Message={"Main_P":int((message[0])['Main_P'])/10,"controllable":self.total_consumption}
+          #  Message={"Main_P":self.total_consumption,"status":1}
+            topic1='BEMS'+str(self.BEMStag)+'LPC/all'
+            result = self.vip.pubsub.publish(peer='pubsub',topic=topic1, headers=header,message= Message) 
+            
+           # BEMStag=topic.split("/")
+            #index=BEMStag[-2]
+            #print("aaaaaaaaaaaaaaa",index)
+            #self.loads_consumption[index]=int((message[0])['Main_P'])/10
+            #self.WeMo_Actual_Status[index]=int((message[0])['Main_S'])
+            #if self.loads_max_consumption[index]< self.loads_consumption[index]:
+            #    self.loads_max_consumption[index]=self.loads_consumption[index]
            # print(self.loads_max_consumption)
            
             
-            values=self.loads_consumption.values()
-            self.total_consumption=sum(values)
-            self.Priority_Consumption[self.WeMo_Priority_increment[index]][index]=int((message[0])['Main_P'])/10
-            self.Priority_group_Consumption[self.WeMo_Priority_increment[index]]=sum(self.Priority_Consumption[self.WeMo_Priority_increment[index]].values())
+            #values=self.loads_consumption.values()
+            #self.total_consumption=sum(values)
+            #self.Priority_Consumption[self.WeMo_Priority_increment[index]][index]=int((message[0])['Main_P'])/10
+            #self.Priority_group_Consumption[self.WeMo_Priority_increment[index]]=sum(self.Priority_Consumption[self.WeMo_Priority_increment[index]].values())
         
 
-            topics1 = "analysis/Centralcontrol/Monitor/prioritygroupconsumption/"+str(self.WeMo_Priority_increment[index])+'/all'
-            topics2 = "devices/Centralcontrol/Monitor/prioritygroupconsumption/"+str(self.WeMo_Priority_increment[index])+'/all'
-            Message={"value":self.Priority_group_Consumption[self.WeMo_Priority_increment[index]],"Total_group_sum":self.total_consumption}
-            result = self.vip.pubsub.publish(peer='pubsub',topic=topics1, headers=header,message= Message)
-            result = self.vip.pubsub.publish(peer='pubsub',topic=topics2, headers=header,message= Message) 
-            print("########################################################################Power Consumption for Building############################", self.Priority_Consumption,self.Priority_group_Consumption,self.total_consumption)
+            #topics1 = "analysis/Centralcontrol/Monitor/prioritygroupconsumption/"+str(self.WeMo_Priority_increment[index])+'/all'
+            #topics2 = "devices/Centralcontrol/Monitor/prioritygroupconsumption/"+str(self.WeMo_Priority_increment[index])+'/all'
+            #Message={"value":self.Priority_group_Consumption[self.WeMo_Priority_increment[index]],"Total_group_sum":self.total_consumption}
+            #result = self.vip.pubsub.publish(peer='pubsub',topic=topics1, headers=header,message= Message)
+            #result = self.vip.pubsub.publish(peer='pubsub',topic=topics2, headers=header,message= Message) 
+            #print("########################################################################Power Consumption for Building############################", self.Priority_Consumption,self.Priority_group_Consumption,self.total_consumption)
         else:
             pass
-        if topic=="control/plc/shedding":
+        if topic=='control/plc/BEMS'+str(self.BEMStag)+'/shedding':
             self.event_control_trigger=1
-            Lpcbagent.Shedding_Command=1
-            Lpcbagent.User_Command=1
-            Lpcbagent.Shedding_Amount=int(message)
+            Lpcgmagent.Shedding_Command=1
+            Lpcgmagent.User_Command=1
+            Lpcgmagent.Shedding_Amount=int(message)
             self.Check_Shedding_condition()
-            self.Sort_WeMo_List()            
+            self.Sort_WeMo_List()
+            print("control............")
             self.WeMo_Scheduled_Status=self.Schedule_Shedding_Control_WeMo()
+            print("sending1............")
             print(self.WeMo_Scheduled_Status)
+            print("sending2............")
             self.Send_WeMo_Schedule()
             
             print("########################################################################Shedding Signal Recived############################",int(message))
             self.event_control_trigger=0
-        if topic=="control/plc/directcontrol":
+        if topic=='control/plc/BEMS'+str(self.BEMStag)+'/directcontrol':
             self.event_control_trigger=1
-            Lpcbagent.Shedding_Command=1
-            Lpcbagent.User_Command=1
-            Lpcbagent.Direct_Control_Mode=int(message)
+            Lpcgmagent.Shedding_Command=1
+            Lpcgmagent.User_Command=1
+            Lpcgmagent.Direct_Control_Mode=int(message)
             self.Check_Shedding_condition()
             self.Sort_WeMo_List()            
             self.WeMo_Scheduled_Status=self.Schedule_Direct_Control_WeMo()
@@ -260,12 +275,16 @@ class Lpcbagent(Agent):
             print(self.WeMo_Scheduled_Status)
             print("########################################################################Direct control Signal Recived############################",int(message))
             self.event_control_trigger=0
-        if topic=="control/plc/increment":
+        if topic=='control/plc/BEMS'+str(self.BEMStag)+'/increment':
+            
             self.event_control_trigger=1
-            Lpcbagent.Increment_Control=1
-            Lpcbagent.Increment_Amount=int(message)
+            Lpcgmagent.Increment_Control=1
+            Lpcgmagent.Increment_Amount=int(message)
+            print("checking............")
             self.Check_Shedding_condition()
-            self.Sort_WeMo_List()  
+            print("sorting............")
+            self.Sort_WeMo_List()
+            print("control............")
             self.WeMo_Scheduled_Status=self.Schedule_Increment_Control_WeMo()
             self.Send_WeMo_Schedule()
             print(self.WeMo_Scheduled_Status)
@@ -274,7 +293,6 @@ class Lpcbagent(Agent):
             self.event_control_trigger=0
         else:
             pass
-
 
     @Core.receiver("onstart")
     def onstart(self, sender, **kwargs):
@@ -307,7 +325,12 @@ class Lpcbagent(Agent):
         try:
                             
             topics=self.WeMo_Topics[WeMo]
-            result = self.vip.pubsub.publish(peer='pubsub',topic=topics,headers=header, message=self.WeMo_Scheduled_Status[WeMo])
+            tag='CMDC_'+WeMo
+            print('aaaaaaaaaaaaaaaaaaaaa',self.WeMo_Scheduled_Status[WeMo],tag)
+            #result = self.vip.pubsub.publish(peer='pubsub',topic=topics,headers=header, message=self.WeMo_Scheduled_Status[WeMo])
+           # result = self.vip.rpc.call('platform.driver','set_point','Campus1/Banshee1/BEMS_1','CMD_G1',1)
+            result=self.vip.rpc.call('platform.driver','set_point', 'Campus1/Benshee1/BEMS_'+str(self.BEMStag),tag,self.WeMo_Scheduled_Status[WeMo]).get(timeout=60)
+            
             '''if self.WeMo_Scheduled_Status[WeMo]==0:
                 result = self.vip.pubsub.publish(peer='pubsub',topic=topics,headers=header, message=1)
                 time.sleep(.2)
@@ -332,7 +355,7 @@ class Lpcbagent(Agent):
  
 
     def Send_WeMo_Schedule(self):
-       
+        print("sending schedule............")
         if bool(self.WeMo_Scheduled_Status)==True:
             #for x in self.WeMo_Actual_Status.keys():
                 #if x in   self.WeMo_Scheduled_Status:
@@ -354,7 +377,7 @@ class Lpcbagent(Agent):
                 # print(ybar+'*************************************************************deleting*************************************************************')
                      print(self.WeMo_Scheduled_Status)
                      del self.WeMo_Scheduled_Status[ybar]
-            Lpcbagent.Shedding_Amount=0
+            Lpcgmagent.Shedding_Amount=0
                  
         self.WeMo_respond_list.clear()
 
@@ -366,14 +389,14 @@ class Lpcbagent(Agent):
 
     def Check_Shedding_condition(self):
         total_consumption=self.total_consumption
-        self.Power_Consumption_Upper_limit=total_consumption-int(Lpcbagent.Shedding_Amount)
+        self.Power_Consumption_Upper_limit=total_consumption-int(Lpcgmagent.Shedding_Amount)
         if self.Power_Consumption_Upper_limit<0:
             self.Power_Consumption_Upper_limit=0
-        print('uppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppper',str(self.Power_Consumption_Upper_limit),Lpcbagent.Shedding_Amount)
+        print('uppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppper',str(self.Power_Consumption_Upper_limit),Lpcgmagent.Shedding_Amount)
                 
 
     def Schedule_Shedding_Control_WeMo(self):
-        print('********************shedding control initialized****************************')
+       
         Temp_WeMo_Schedule={}
         Temp_WeMos=defaultdict(list)
         for x in self.WeMo_Actual_Status:
@@ -381,22 +404,28 @@ class Lpcbagent(Agent):
               Temp_WeMos[int(self.WeMo_Priority_increment[x])].append([x,int(self.loads_consumption[x])])
               #else:
                   #pass
-        print(Temp_WeMos)
+        print('aaaaaaaa',Temp_WeMos)
         consumption=self.total_consumption
+        
         while bool(Temp_WeMos)==True:
             print(Temp_WeMos[min(Temp_WeMos.keys())])
             
             for y in Temp_WeMos[min(Temp_WeMos.keys())]:
+                print("rrrrr",y)
+                print('********************shedding control initialized****************************',consumption)
                 consumption=consumption-y[1]
+                
                 Temp_WeMo_Schedule[y[0]]=0
-                del y[y.index(min(y))]
-                print(consumption)
+                print('********************shedding control initialized****************************',consumption,y)
+                #del y[y.index(min(y))]
+                print('aaaaaaaaa',consumption)
                 if consumption <= self.Power_Consumption_Upper_limit:
                     break;
             if consumption <= self.Power_Consumption_Upper_limit:
                break;
             del Temp_WeMos[min(Temp_WeMos.keys())]
-        print(Temp_WeMos)
+        
+        print('bbbbbbbbbbbbbbbb',Temp_WeMos)
         return Temp_WeMo_Schedule
     def Schedule_Direct_Control_WeMo(self):
         print('********************direct control initialized****************************')
@@ -406,11 +435,11 @@ class Lpcbagent(Agent):
             #print(x)
             #print(y)
             
-            if Lpcbagent.Direct_Control_Mode==1:
+            if Lpcgmagent.Direct_Control_Mode==1:
                     Temp_WeMo_Schedule[y]=1 
-            if Lpcbagent.Direct_Control_Mode==0:
+            if Lpcgmagent.Direct_Control_Mode==0:
                     Temp_WeMo_Schedule[y]=0
-            if Lpcbagent.Direct_Control_Mode==2:
+            if Lpcgmagent.Direct_Control_Mode==2:
                     Temp_WeMo_Schedule[y]=2
             else:
                     pass
@@ -431,10 +460,10 @@ class Lpcbagent(Agent):
             for y in Temp_Off_WeMos[max(Temp_Off_WeMos.keys())]:
                 consumption=y[1]+consumption
                 
-                if consumption >= Lpcbagent.Increment_Amount:
+                if consumption >= Lpcgmagent.Increment_Amount:
                     break;
-                Temp_WeMo_Schedule[y[0]]=2
-            if consumption >= Lpcbagent.Increment_Amount:
+                Temp_WeMo_Schedule[y[0]]=1
+            if consumption >= Lpcgmagent.Increment_Amount:
                 break;
             
             del Temp_Off_WeMos[max(Temp_Off_WeMos.keys())]
@@ -474,19 +503,20 @@ class Lpcbagent(Agent):
         May be called from another agent via self.core.rpc.call """
         k=0
         print('herer is the message@@@@@@@@@@@@@@@@@@',arg1)
-        for y in arg1:
+        for k in range(10):
             k=k+1
-            p='BEMS_'+str(k)
-            self.WeMo_Scheduled_Status[p]=y
+            p='G'+str(k)
+            self.WeMo_Scheduled_Status[p]=arg1
             print(self.WeMo_Scheduled_Status[p])
         self.Send_WeMo_Schedule()
         
         return 1
     
 
+
 def main():
     """Main method called to start the agent."""
-    utils.vip_main(lPCBAgent, 
+    utils.vip_main(lPCGMAgent, 
                    version=__version__)
 
 

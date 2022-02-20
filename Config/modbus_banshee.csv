@@ -1,0 +1,9 @@
+Reference Point Name,Volttron Point Name,Units,Units Details,Modbus Register,Writable,Point Address,Default Values, Notes
+Main_P,Main_P,W,0.00-2000.00,>h,TRUE,0,,Reading 0.00-2000.0 W
+Main_Q,Main_Q,W,0.00-2000.00,>h,TRUE,1,Reading 0.00-2000.0 W,
+Main_R,Main_R,W,0.00-2000.00,>h,TRUE,2,,Reading 0.00-2000.0 W
+Main_S,Main_S,W,0.00-2000.00,>h,TRUE,3,,Reading 0.00-2000.0 W
+Main_f,Main_f,W,0.00-2000.00,>h,TRUE,4,,Reading 0.00-2000.0 W
+Main_T,Main_T,W,0.00-2000.00,>h,TRUE,5,,Reading 0.00-2000.0 W
+To_Building_P,To_Building_P,W,0.00-2000.00,>h,TRUE,20,,Reading 0.00-2000.0 W
+To_Building_Q,To_Building_Q,W,0.00-2000.00,>h,TRUE,21,,Reading 0.00-2000.0 W
